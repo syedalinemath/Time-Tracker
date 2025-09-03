@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<!-- Main Time Tracking Dashboard -->
+<html lang="en">
+  <head>
+    <!-- Meta tags for proper display -->
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Time Tracker - Dashboard</title>
+
+    <!-- Link to our CSS file for styling -->
+    <link rel="stylesheet" href="css/style.css" />
+
+    <!-- SheetJS Library for Excel export functionality -->
+    <script src="js/xlsx.full.min.js"></script>
+  </head>
+  <body class="dashboard-body">
+    <!-- Navigation Header -->
+    <nav class="dashboard-nav">
+      <div class="nav-container">
+        <h1 class="nav-title">⏰ Time Tracker</h1>
+        <div class="nav-user-info">
+          <span id="welcome-message">Welcome, User</span>
+          <button id="logout-btn" class="btn-logout">Logout</button>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Dashboard Container -->
+    <div class="dashboard-container">
+      <!-- Current Status Section -->
+      <div class="status-card">
+        <div class="status-header">
+          <h2>📊 Current Status</h2>
+          <div class="current-time" id="current-time"></div>
+        </div>
+
+        <div class="status-content">
+          <!-- Current work status display -->
+          <div class="work-status" id="work-status">
+            <div class="status-indicator" id="status-indicator">
+              🔴 Not Checked In
+            </div>
+            <div class="last-action" id="last-action">
+              Ready to start your day!
+            </div>
+          </div>
+
+          <!-- Check-in/Check-out buttons -->
+          <div class="time-controls">
+            <button id="check-in-btn" class="btn-checkin">🚀 Check In</button>
+            <button id="check-out-btn" class="btn-checkout" disabled>
+              🏁 Check Out
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Today's Summary Section -->
+      <div class="summary-cards-grid">
+        <!-- Today's Hours Card -->
+        <div class="summary-card">
+          <div class="card-icon">📅</div>
+          <div class="card-content">
+            <h3>Today's Hours</h3>
+            <div class="card-value" id="today-hours">0.0 hrs</div>
+            <div class="card-subtitle" id="today-sessions">0 sessions</div>
+          </div>
+        </div>
+
+        <!-- This Week Card -->
+        <div class="summary-card">
+          <div class="card-icon">📈</div>
+          <div class="card-content">
+            <h3>This Week</h3>
+            <div class="card-value" id="week-hours">0.0 hrs</div>
+            <div class="card-subtitle" id="week-days">0 days worked</div>
+          </div>
+        </div>
+
+        <!-- This Month Card -->
+        <div class="summary-card">
+          <div class="card-icon">📊</div>
+          <div class="card-content">
+            <h3>This Month</h3>
+            <div class="card-value" id="month-hours">0.0 hrs</div>
+            <div class="card-subtitle" id="month-days">0 days worked</div>
+          </div>
+        </div>
+
+        <!-- Excel Export Card -->
+        <div class="summary-card export-card">
+          <div class="card-icon">📋</div>
+          <div class="card-content">
+            <h3>Export Data</h3>
+            <button id="export-week-btn" class="btn-export">
+              📥 Weekly Excel
+            </button>
+            <div class="card-subtitle">Auto-exports every Sunday</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Time Entries Section -->
+      <div class="entries-section">
+        <div class="section-header">
+          <h2>📋 Recent Time Entries</h2>
+          <div class="section-controls">
+            <button id="add-entry-btn" class="btn-secondary">
+              ➕ Add Entry
+            </button>
+            <button id="view-all-btn" class="btn-secondary">📄 View All</button>
+          </div>
+        </div>
+
+        <!-- Time entries will be displayed here -->
+        <div class="entries-container" id="entries-container">
+          <div class="no-entries" id="no-entries">
+            <p>🎯 No time entries yet. Start by checking in!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Reports Section -->
+      <div class="reports-section">
+        <h2>📊 Quick Reports</h2>
+        <div class="reports-grid">
+          <button class="report-btn" id="daily-report-btn">
+            📅 Daily Report
+          </button>
+          <button class="report-btn" id="weekly-report-btn">
+            📈 Weekly Report
+          </button>
+          <button class="report-btn" id="monthly-report-btn">
+            📊 Monthly Report
+          </button>
+          <button class="report-btn" id="custom-report-btn">
+            🎯 Custom Range
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for Adding/Editing Time Entries -->
+    <div id="entry-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modal-title">Add Time Entry</h3>
+          <span class="modal-close" id="modal-close">×</span>
+        </div>
+
+        <form id="entry-form">
+          <!-- Date input -->
+          <div class="form-group">
+            <label for="entry-date">Date:</label>
+            <input type="date" id="entry-date" required />
+          </div>
+
+          <!-- Check-in time -->
+          <div class="form-group">
+            <label for="entry-checkin">Check-in Time:</label>
+            <input type="time" id="entry-checkin" required />
+          </div>
+
+          <!-- Check-out time -->
+          <div class="form-group">
+            <label for="entry-checkout">Check-out Time:</label>
+            <input type="time" id="entry-checkout" />
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group">
+            <label for="entry-notes">Notes (optional):</label>
+            <textarea
+              id="entry-notes"
+              rows="3"
+              placeholder="Add any notes about this work session..."
+            ></textarea>
+          </div>
+
+          <!-- Form buttons -->
+          <div class="modal-footer">
+            <button type="button" id="cancel-entry" class="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary">Save Entry</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Notification area for messages -->
+    <div id="notification-area" class="notification-area" style="display: none">
+      <div id="notification-content"></div>
+    </div>
+
+    <!-- JavaScript files -->
+    <script src="./js/apiBase.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/excelExport.js"></script>
+    <script src="js/dashboard.js"></script>
+  </body>
+</html>
