@@ -109,6 +109,40 @@ class TimeTrackingDashboard {
       this.monthlyReportBtn.addEventListener("click", () =>
         this.showMonthlyReport()
       );
+    const startInput = document.getElementById("filter-start");
+    const endInput = document.getElementById("filter-end");
+    const customBtn = document.getElementById("custom-report-btn");
+
+    if (customBtn) {
+      customBtn.addEventListener("click", async () => {
+        const startDate = startInput.value;
+        const endDate = endInput.value;
+        if (!startDate || !endDate) {
+          return this.showNotification(
+            "Pick both start and end dates.",
+            "warning"
+          );
+        }
+        try {
+          const entries = await this.fetchEntries({ startDate, endDate });
+          this.renderEntries(entries);
+        } catch {
+          this.showNotification("Could not load custom report.", "error");
+        }
+      });
+    }
+    const viewAllBtn = document.getElementById("view-all-btn");
+
+    if (viewAllBtn) {
+      viewAllBtn.addEventListener("click", async () => {
+        try {
+          const entries = await this.fetchEntries(); // no filters = all entries
+          this.renderEntries(entries);
+        } catch {
+          this.showNotification("Could not load all entries.", "error");
+        }
+      });
+    }
   }
 
   /* -------- Init -------- */
@@ -237,8 +271,8 @@ class TimeTrackingDashboard {
   async handleManualEntry(e) {
     e.preventDefault();
     const date = this.entryForm.querySelector("#manual-date")?.value;
-    const inVal = this.entryForm.querySelector("#manual-checkin")?.value;
-    const outVal = this.entryForm.querySelector("#manual-checkout")?.value;
+    const inVal = this.entryForm.querySelector("#manual-check-in")?.value; // fixed ID
+    const outVal = this.entryForm.querySelector("#manual-check-out")?.value; // fixed ID
 
     if (!date || !inVal || !outVal)
       return this.showNotification("Fill all fields.", "warning");
@@ -407,13 +441,6 @@ class TimeTrackingDashboard {
 /* ==============================================
    Helpers
    ============================================== */
-async function authFetch(urlPath, options = {}) {
-  const headers = new Headers(options.headers || {});
-  const token = localStorage.getItem("authToken");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  headers.set("Content-Type", "application/json");
-  return fetch(apiUrl(urlPath), { ...options, headers });
-}
 
 function toYMD(d) {
   const dt = new Date(d);

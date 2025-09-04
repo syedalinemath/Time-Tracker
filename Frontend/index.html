@@ -124,6 +124,8 @@
       <div class="reports-section">
         <h2>📊 Quick Reports</h2>
         <div class="reports-grid">
+          <input id="filter-start" type="date" />
+          <input id="filter-end" type="date" />
           <button class="report-btn" id="daily-report-btn">
             📅 Daily Report
           </button>
@@ -136,6 +138,7 @@
           <button class="report-btn" id="custom-report-btn">
             🎯 Custom Range
           </button>
+          <button class="report-btn" id="view-all-btn">📂 View All</button>
         </div>
       </div>
     </div>
@@ -151,20 +154,20 @@
         <form id="entry-form">
           <!-- Date input -->
           <div class="form-group">
-            <label for="entry-date">Date:</label>
-            <input type="date" id="entry-date" required />
+            <label for="manual-date">Date:</label>
+            <input type="date" id="manual-date" required />
           </div>
 
           <!-- Check-in time -->
           <div class="form-group">
-            <label for="entry-checkin">Check-in Time:</label>
-            <input type="time" id="entry-checkin" required />
+            <label for="manual-check-in">Check-in Time:</label>
+            <input type="time" id="manual-check-in" required />
           </div>
 
           <!-- Check-out time -->
           <div class="form-group">
-            <label for="entry-checkout">Check-out Time:</label>
-            <input type="time" id="entry-checkout" />
+            <label for="manual-check-out">Check-out Time:</label>
+            <input type="time" id="manual-check-out" />
           </div>
 
           <!-- Notes -->

@@ -98,13 +98,44 @@ document.addEventListener("DOMContentLoaded", function () {
     localStorage.setItem("currentUser", JSON.stringify(user));
   }
 
-  async function authFetch(urlPath, options = {}) {
-    const headers = new Headers(options.headers || {});
-    const token = localStorage.getItem("authToken");
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    headers.set("Content-Type", "application/json");
-    return fetch(apiUrl(urlPath), { ...options, headers });
-  }
+  // Frontend/js/http.js
+  // One shared, safe fetch helper for all API requests.
+
+  (function () {
+    /**
+     * authFetch(path, { method, headers, body }?)
+     * - Handles JWT header automatically
+     * - Safely builds options (no spreading undefined)
+     * - Auto-JSON stringifies plain objects for body
+     * - Returns Response so callers can check res.ok or res.json()
+     */
+    window.authFetch = async function authFetch(
+      path,
+      { method = "GET", headers = {}, body } = {}
+    ) {
+      // Pull token saved after login
+      const token = localStorage.getItem("authToken");
+
+      // Merge headers safely; allow overrides
+      const finalHeaders = {
+        "Content-Type": "application/json",
+        ...(headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      // Build fetch options without spreading possibly undefined objects
+      const opts = {
+        method,
+        headers: finalHeaders,
+        ...(body !== undefined
+          ? { body: typeof body === "string" ? body : JSON.stringify(body) }
+          : {}),
+      };
+
+      // Use the base API url helper you already have
+      return fetch(apiUrl(path), opts);
+    };
+  })();
 
   async function verifySessionAndMaybeRedirect() {
     const token = getToken();
