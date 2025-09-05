@@ -232,17 +232,33 @@ app.post("/api/time-entries", authenticateToken, (req, res) => {
         .status(400)
         .json({ error: "Check-in time and date are required" });
 
-    db.run(
-      "INSERT INTO time_entries (user_id, check_in, date, notes) VALUES (?, ?, ?, ?)",
-      [userId, checkIn, date, notes || ""],
-      function (err) {
-        if (err)
-          return res.status(500).json({ error: "Error creating time entry" });
-        res
-          .status(201)
-          .json({ message: "Time entry created", entryId: this.lastID });
-      }
-    );
+    // Support manual entries with checkOut + computed hours
+if (req.body.checkOut) {
+  const inTime = new Date(checkIn);
+  const outTime = new Date(req.body.checkOut);
+  let hours = (outTime - inTime) / (1000 * 60 * 60);
+  if (!isFinite(hours) || hours < 0) hours = 0;
+
+  db.run(
+    `INSERT INTO time_entries (user_id, check_in, check_out, hours, date, notes, is_manual_entry)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [userId, checkIn, req.body.checkOut, hours, date, notes || "", !!req.body.isManualEntry],
+    function (err) {
+      if (err) return res.status(500).json({ error: "Error creating time entry" });
+      res.status(201).json({ message: "Time entry created", entryId: this.lastID, hours });
+    }
+  );
+} else {
+  db.run(
+    "INSERT INTO time_entries (user_id, check_in, date, notes) VALUES (?, ?, ?, ?)",
+    [userId, checkIn, date, notes || ""],
+    function (err) {
+      if (err) return res.status(500).json({ error: "Error creating time entry" });
+      res.status(201).json({ message: "Time entry created", entryId: this.lastID });
+    }
+  );
+}
+
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
   }
