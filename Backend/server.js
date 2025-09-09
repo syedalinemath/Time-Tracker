@@ -277,7 +277,7 @@ app.post("/api/time-entries", authenticateToken, (req, res) => {
 app.put("/api/time-entries/:id", authenticateToken, (req, res) => {
   const { check_out, notes } = req.body;
   const { id } = req.params;
-  const userId = req.user.id; // from JWT middleware
+  const userId = req.user.userid; // from JWT middleware
 
   // 1) Get the original check_in time
   db.get(
@@ -389,6 +389,8 @@ app.get("/api/reports/summary", authenticateToken, (req, res) => {
       [userId, today],
       (err, todayStats) => {
         if (err) return res.status(500).json({ error: "Database error" });
+
+        
         const weekStart = new Date();
         const currentDay = weekStart.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
         const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // Handle Sunday as last day of week
