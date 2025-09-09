@@ -293,13 +293,16 @@ app.put("/api/time-entries/:id", authenticateToken, (req, res) => {
       }
 
       // 2) Calculate hours (difference in hours between check_in and check_out)
-      const checkIn = new Date(row.check_in);
-      const checkOut = new Date(check_out);
-      if (isNaN(checkOut.getTime())) {
-        return res.status(400).json({ error: "Invalid check_out value" });
+      // 2) Calculate hours safely (SQLite stores "YYYY-MM-DD HH:MM:SS")
+      // Convert to ISO by replacing the space with "T"
+      const checkIn = new Date(row.check_in.replace(" ", "T"));
+      const checkOutDate = new Date(check_out.replace(" ", "T"));
+
+      if (isNaN(checkOutDate.getTime()) || isNaN(checkIn.getTime())) {
+        return res.status(400).json({ error: "Invalid date format" });
       }
 
-      const hours = (checkOut - checkIn) / (1000 * 60 * 60);
+      const hours = (checkOutDate - checkIn) / (1000 * 60 * 60);
 
       // 3) Update record with checkout + computed hours
       db.run(
@@ -386,9 +389,11 @@ app.get("/api/reports/summary", authenticateToken, (req, res) => {
       [userId, today],
       (err, todayStats) => {
         if (err) return res.status(500).json({ error: "Database error" });
-
         const weekStart = new Date();
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
+        const currentDay = weekStart.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // Handle Sunday as last day of week
+        weekStart.setDate(weekStart.getDate() - daysFromMonday);
+        weekStart.setHours(0, 0, 0, 0); // Set to start of day for consistency
         const weekStartStr = weekStart.toISOString().split("T")[0];
 
         db.get(
