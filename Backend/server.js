@@ -39,12 +39,14 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
-        ? "https://your-domain.com"
+        ? process.env.CORS_ORIGIN
         : [
             "http://localhost:3000",
             "http://localhost:5500",
             "http://127.0.0.1:5500",
+            "null",
           ],
+
     credentials: true,
   })
 );
@@ -70,6 +72,22 @@ const db = new sqlite3.Database(dbPath, (err) => {
     initializeDatabase();
   }
 });
+console.log("Connected to SQLite database:", dbPath);
+
+// add ↓ here
+db.serialize(() => {
+  db.run("PRAGMA foreign_keys = ON;");
+  db.run("PRAGMA journal_mode = WAL;");
+  db.run("PRAGMA synchronous = NORMAL;");
+});
+
+// then init
+initializeDatabase();
+
+// after tables exist, add index
+db.run(
+  "CREATE INDEX IF NOT EXISTS idx_entries_user_date ON time_entries(user_id, date);"
+);
 
 function initializeDatabase() {
   db.run(`
@@ -98,8 +116,15 @@ function initializeDatabase() {
       FOREIGN KEY (user_id) REFERENCES users (id)
     )
   `);
-
-  console.log("Database tables initialized");
+  db.run(`
+  CREATE TRIGGER IF NOT EXISTS update_time_entries_updated_at
+  AFTER UPDATE ON time_entries
+  BEGIN
+    UPDATE time_entries
+    SET updated_at = CURRENT_TIMESTAMP
+    WHERE id = NEW.id;
+  END;
+`);
 }
 
 // ==============================================
@@ -207,7 +232,8 @@ app.post("/api/auth/login", (req, res) => {
 
 // Get current user
 app.get("/api/auth/me", authenticateToken, (req, res) => {
-  const userId = req.user.userId;
+  const userId = req.user.userId; // ✅ consistent with your JWT payload
+
   db.get(
     "SELECT id, name, email FROM users WHERE id = ?",
     [userId],
@@ -249,49 +275,53 @@ app.post("/api/time-entries", authenticateToken, (req, res) => {
 });
 
 app.put("/api/time-entries/:id", authenticateToken, (req, res) => {
-  try {
-    const { id } = req.params;
-    const { checkOut, notes } = req.body;
-    const userId = req.user.userId;
+  const { check_out, notes } = req.body;
+  const { id } = req.params;
+  const userId = req.user.id; // from JWT middleware
 
-    if (!checkOut)
-      return res.status(400).json({ error: "Check-out time required" });
-
-    // 1) Get check_in for this entry
-    db.get(
-      "SELECT check_in FROM time_entries WHERE id = ? AND user_id = ?",
-      [id, userId],
-      (err, row) => {
-        if (err) return res.status(500).json({ error: "Database error" });
-        if (!row) return res.status(404).json({ error: "Not found" });
-
-        // 2) Compute hours
-        const inTime = new Date(row.check_in);
-        const outTime = new Date(checkOut);
-        let hours = (outTime - inTime) / (1000 * 60 * 60);
-        if (!isFinite(hours) || hours < 0) hours = 0;
-
-        // 3) Update record with checkout + computed hours
-        db.run(
-          `UPDATE time_entries 
-           SET check_out = ?, hours = ?, notes = ?, updated_at = CURRENT_TIMESTAMP 
-           WHERE id = ? AND user_id = ?`,
-          [checkOut, hours, notes || null, id, userId],
-          function (uErr) {
-            if (uErr)
-              return res
-                .status(500)
-                .json({ error: "Error updating time entry" });
-            if (this.changes === 0)
-              return res.status(404).json({ error: "Not found" });
-            res.json({ message: "Time entry updated successfully", hours });
-          }
-        );
+  // 1) Get the original check_in time
+  db.get(
+    `SELECT check_in FROM time_entries 
+     WHERE id = ? AND user_id = ?`,
+    [id, userId],
+    (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: "Database error" });
       }
-    );
-  } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
-  }
+      if (!row) {
+        return res.status(404).json({ error: "Time entry not found" });
+      }
+
+      // 2) Calculate hours (difference in hours between check_in and check_out)
+      const checkIn = new Date(row.check_in);
+      const checkOut = new Date(check_out);
+      if (isNaN(checkOut.getTime())) {
+        return res.status(400).json({ error: "Invalid check_out value" });
+      }
+
+      const hours = (checkOut - checkIn) / (1000 * 60 * 60);
+
+      // 3) Update record with checkout + computed hours
+      db.run(
+        `UPDATE time_entries 
+         SET check_out = ?, hours = ?, notes = ?, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = ? AND user_id = ?`,
+        [check_out, hours, notes || null, id, userId],
+        function (uErr) {
+          if (uErr) {
+            return res.status(500).json({ error: "Error updating time entry" });
+          }
+          if (this.changes === 0) {
+            return res.status(404).json({ error: "Not found" });
+          }
+          res.json({
+            message: "Time entry updated successfully",
+            hours,
+          });
+        }
+      );
+    }
+  );
 });
 
 app.get("/api/time-entries", authenticateToken, (req, res) => {
