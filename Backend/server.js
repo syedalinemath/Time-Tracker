@@ -117,6 +117,8 @@ function authenticateToken(req, res, next) {
     next();
   });
 }
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
+app.use("/api/auth", authLimiter);
 
 // ==============================================
 // AUTH ROUTES
@@ -224,17 +226,22 @@ app.get("/api/auth/me", authenticateToken, (req, res) => {
 // ==============================================
 app.post("/api/time-entries", authenticateToken, (req, res) => {
   try {
-    const { checkIn, date, notes } = req.body;
+    const { checkIn, checkOut, date, notes, isManualEntry } = req.body;
+    const d = new Date(checkIn);
+    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(d.getDate()).padStart(2, "0")}`;
     const userId = req.user.userId;
 
-    if (!checkIn || !date)
+    if (!checkIn)
       return res
         .status(400)
         .json({ error: "Check-in time and date are required" });
 
     db.run(
       "INSERT INTO time_entries (user_id, check_in, date, notes) VALUES (?, ?, ?, ?)",
-      [userId, checkIn, date, notes || ""],
+      [userId, checkIn, ymd, notes || ""],
       function (err) {
         if (err)
           return res.status(500).json({ error: "Error creating time entry" });
@@ -350,21 +357,38 @@ app.get("/api/reports/summary", authenticateToken, (req, res) => {
     const userId = req.user.userId;
     const today = new Date().toISOString().split("T")[0];
 
+    const toYMD = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate()
+      ).padStart(2, "0")}`;
+    const todayStr = toYMD(new Date());
+
     db.get(
-      `SELECT COUNT(*) as sessions_today, COALESCE(SUM(hours), 0) as hours_today
-       FROM time_entries WHERE user_id = ? AND date = ?`,
-      [userId, today],
+      `SELECT COUNT(*) AS sessions_today,
+          COALESCE(SUM(hours),0) AS hours_today
+   FROM time_entries
+   WHERE user_id = ? AND date = ?`,
+      [userId, todayStr],
+
       (err, todayStats) => {
         if (err) return res.status(500).json({ error: "Database error" });
 
-        const weekStart = new Date();
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-        const weekStartStr = weekStart.toISOString().split("T")[0];
+        const now = new Date();
+        const day = (now.getDay() + 6) % 7; // Mon=0..Sun=6
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - day);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekStartStr = toYMD(weekStart);
+
+        console.log("Week start:", weekStartStr, "Today:", todayStr); // Add this
 
         db.get(
-          `SELECT COUNT(DISTINCT date) as days_this_week, COALESCE(SUM(hours), 0) as hours_this_week
-           FROM time_entries WHERE user_id = ? AND date >= ?`,
+          `SELECT COUNT(DISTINCT DATE(check_in)) AS days_this_week,
+          COALESCE(SUM(hours),0) AS hours_this_week
+   FROM time_entries
+   WHERE user_id = ? AND date >= ?`,
           [userId, weekStartStr],
+
           (err, weekStats) => {
             if (err) return res.status(500).json({ error: "Database error" });
 
@@ -374,7 +398,8 @@ app.get("/api/reports/summary", authenticateToken, (req, res) => {
 
             db.get(
               `SELECT COUNT(DISTINCT date) as days_this_month, COALESCE(SUM(hours), 0) as hours_this_month
-               FROM time_entries WHERE user_id = ? AND date >= ?`,
+               FROM time_entries WHERE user_id = ? AND date >= ?
+`,
               [userId, monthStartStr],
               (err, monthStats) => {
                 if (err)
@@ -439,6 +464,20 @@ process.on("SIGINT", () => {
   console.log("\nShutting down gracefully...");
   db.close(() => process.exit(0));
 });
+
+app.get("/healthz", (_req, res) => res.status(200).json({ ok: true }));
+
+app.use(express.static(path.join(__dirname, "../Frontend")));
+
+app.get("/", (_req, res) =>
+  res.sendFile(path.join(__dirname, "../Frontend/login.html"))
+);
+
+app.get("/dashboard", (_req, res) =>
+  res.sendFile(path.join(__dirname, "../Frontend/index.html"))
+);
+
+app.get("/api", (_req, res) => res.redirect("/login.html"));
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on port ${PORT}`);
