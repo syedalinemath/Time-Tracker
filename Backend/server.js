@@ -337,10 +337,13 @@ app.delete("/api/time-entries/:id", authenticateToken, (req, res) => {
   const { id } = req.params;
   const userId = req.user.userId;
 
+  console.log("DELETE hit:", { id, userId }); // <— add here
+
   db.run(
     "DELETE FROM time_entries WHERE id = ? AND user_id = ?",
     [id, userId],
     function (err) {
+      console.log("DELETE result:", { err, changes: this.changes }); // <— and here
       if (err) return res.status(500).json({ error: "Error deleting entry" });
       if (this.changes === 0)
         return res.status(404).json({ error: "Not found" });
