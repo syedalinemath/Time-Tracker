@@ -5,7 +5,7 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   if (!isUserLoggedIn()) {
-    window.location.href = "/";
+    window.location.href = "/login.html";
     return;
   }
   new TimeTrackingDashboard();
@@ -131,6 +131,7 @@ class TimeTrackingDashboard {
     };
     tick();
     setInterval(tick, 1000);
+    setInterval(() => this.refreshSummaries(), 60000); // once per minute
   }
 
   async refreshAll() {
@@ -259,7 +260,8 @@ class TimeTrackingDashboard {
     this.showNotification("Manual entry added.", "success");
     this.entryForm.reset();
     this.hideModal();
-    await this.refreshAll();
+    await this.refreshEntries();
+    await this.refreshSummaries();
   }
 
   /* -------- Rendering -------- */
@@ -333,7 +335,8 @@ class TimeTrackingDashboard {
     if (!res.ok) return this.showNotification("Delete failed.", "error");
 
     this.showNotification("Entry deleted.", "success");
-    await this.refreshAll();
+    await this.refreshEntries();
+    await this.refreshSummaries();
   }
 
   /* -------- Reports -------- */
