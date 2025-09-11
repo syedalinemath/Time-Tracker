@@ -271,3 +271,9 @@ function getCurrentUser() {
 function isUserLoggedIn() {
   return !!localStorage.getItem("authToken");
 }
+// Add at the end of the file
+function logout() {
+  clearUserData();
+  window.location.href = "/login.html";
+}
+window.logout = logout;

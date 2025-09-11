@@ -73,7 +73,7 @@ class TimeTrackingDashboard {
     if (this.logoutBtn)
       this.logoutBtn.addEventListener("click", () => {
         clearUserData();
-        window.location.href = "/";
+        window.location.href = "login.html";
       });
 
     if (this.checkInBtn)
